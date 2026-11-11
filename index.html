@@ -228,9 +228,12 @@ a{color:inherit}
 .works{display:grid;gap:18px;margin-top:28px}
 .works h3{margin:0;font-size:clamp(24px,3vw,36px);color:var(--wine)}
 .marquee{overflow:hidden;margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding-block:6px 14px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
-.belt{display:flex;gap:18px;width:max-content;animation:belt 48s linear infinite}
-.marquee:hover .belt,.marquee:focus-within .belt{animation-play-state:paused}
-@keyframes belt{to{transform:translateX(calc(-50% - 9px))}}
+.belt{display:flex;gap:18px;width:max-content;will-change:transform}
+.wk-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.wk-nav{display:flex;gap:10px}
+.wk-nav button{width:46px;height:46px;border-radius:50%;border:2px solid var(--ink);background:var(--cream);color:var(--wine);font:700 20px/1 var(--f-body);cursor:pointer;box-shadow:3px 3px 0 var(--wine);display:grid;place-items:center}
+.wk-nav button:hover{background:var(--wine);color:var(--cream)}
+.wk-nav button:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--wine)}
 .work{flex:0 0 210px;position:relative;aspect-ratio:9/16;max-width:100%;border-radius:18px;overflow:hidden;text-decoration:none;background:linear-gradient(170deg,#5a111a,#2a0204);border:2px solid var(--ink);box-shadow:5px 5px 0 var(--wine);display:grid;place-items:center;isolation:isolate;transition:transform .15s ease}
 .work:hover{transform:translateY(-4px)}
 .work::before{content:"";position:absolute;z-index:-2;inset:auto -30% -20% auto;width:95%;aspect-ratio:1;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath fill='%236a1a22' d='M50 3l13.8 30.4 33.2 3.6-24.7 22.4 6.9 32.6L50 75.6 20.8 92l6.9-32.6L3 37l33.2-3.6z'/%3E%3C/svg%3E") center/contain no-repeat}
@@ -316,7 +319,13 @@ main.flow>section.round{margin-top:-44px;border-radius:44px 44px 0 0;position:re
     <div class="grid" id="grid"></div>
 
     <div class="works" aria-labelledby="works-h">
-      <h3 class="disp worn-s" id="works-h">Alguns trabalhos</h3>
+      <div class="wk-head">
+        <h3 class="disp worn-s" id="works-h">Alguns trabalhos</h3>
+        <div class="wk-nav">
+          <button type="button" data-dir="prev" aria-label="Vídeo anterior">←</button>
+          <button type="button" data-dir="next" aria-label="Próximo vídeo">→</button>
+        </div>
+      </div>
       <div class="marquee"><div class="belt" id="belt"></div></div>
     </div>
 
@@ -449,7 +458,6 @@ const WORKS = [
  {brand:'30e',h:'briangordock',url:'https://www.instagram.com/briangordock/reel/DSBLV_uEp-i/',img:'https://gordock.com.br/_next/static/immutable/media/work-limpbizkit.11vssrj4bdh06.png'},
  {h:'soturno',url:IG+'DfTHt3TPwll/'},
  {brand:'Éntona Decor',h:'_mariakreutz',url:IG+'DfIY6qVTXWM/',img:TH+'media/instagram/post/reel/20261030/6ae6129e61eee4d0b6eb6173.jpg'},
- {h:'edsonlifts',url:IG+'DeDWLK2N3OY/'},
  {brand:'Shopping João Pessoa',h:'tinkerbru',url:IG+'DedO_-KsG96/',img:TH+'reel/20261013/6ad918a561eee4d0b65bfb74.jpg'},
  {h:'mastellaneto',url:IG+'DdkE2IIB4eq/'},
  {h:'jv.alvarenga',url:IG+'DbTPZaSxFUO/'},
@@ -471,12 +479,35 @@ const workHTML = (w,dup) => {
   return `<a class="work" href="${esc(w.url)}" target="_blank" rel="noopener"${dup?' aria-hidden="true" tabindex="-1"':''} aria-label="${esc(w.brand?w.brand+', ':'')}vídeo de @${esc(w.h)}">`
    + `<span class="ini" aria-hidden="true">${esc(ini(nameOf(w.h)))}</span>`
    + `<img src="${esc(cover)}" alt="" loading="lazy" decoding="async" onerror="${fb}">`
-   + (w.brand ? `<em class="brand" style="font-style:normal">${esc(w.brand)}</em>` : '')
    + `<span class="play" aria-hidden="true"></span><span class="who">@${esc(w.h)}</span></a>`;
 };
 const belt = document.getElementById('belt');
 belt.innerHTML = WORKS.map(w=>workHTML(w,false)).join('') + WORKS.map(w=>workHTML(w,true)).join('');
-belt.style.animationDuration = (WORKS.length*6)+'s';
+// carrossel: anda sozinho, para com o mouse em cima, e as setas avançam/voltam um vídeo
+(function(){
+  const box = belt.parentElement, SPEED = 38; // px por segundo
+  let x = 0, target = null, paused = false, last = performance.now();
+  const step = () => belt.firstElementChild.getBoundingClientRect().width + 18;
+  const half = () => belt.scrollWidth / 2;
+  const wrap = v => { const h = half(); return ((v % h) + h) % h; };
+  function tick(now){
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (target !== null) {
+      const d = target - x; x += d * Math.min(1, dt * 9);
+      if (Math.abs(d) < 0.5) { x = target; target = null; }
+    } else if (!paused) x += SPEED * dt;
+    const h = half(); if (x >= h) { x -= h; if (target !== null) target -= h; } else if (x < 0) { x += h; if (target !== null) target += h; }
+    belt.style.transform = `translateX(${-x}px)`;
+    requestAnimationFrame(tick);
+  }
+  box.addEventListener('mouseenter', () => paused = true);
+  box.addEventListener('mouseleave', () => paused = false);
+  document.querySelectorAll('.wk-nav button').forEach(b => b.addEventListener('click', () => {
+    const s = step(), base = target !== null ? target : x;
+    target = Math.round((base + (b.dataset.dir === 'next' ? s : -s)) / s) * s;
+  }));
+  requestAnimationFrame(tick);
+})();
 </script>
 
 </body></html>

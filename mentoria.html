@@ -469,16 +469,10 @@ body{margin:0} img{max-width:100%} [hidden]{display:none!important}
 <script>
 const tk = w => Array.from({length:16},()=>`<span>${w}</span>`).join('');
 document.getElementById('tick1').innerHTML = tk('@pasme.lab')+tk('@pasme.lab');
-// botão flutuante: aparece depois da abertura e some quando outro botão de candidatura já está na tela
+// botão flutuante: fica sempre visível depois de rolar um pouco a página
 (function(){
   const fab = document.getElementById('fab');
-  const ctas = [...document.querySelectorAll('main .cta')];
-  const vis = new Set();
-  let past = false;
-  const upd = () => { if (past && !vis.size) fab.removeAttribute('data-off'); else fab.setAttribute('data-off',''); };
-  const io = new IntersectionObserver(es => { es.forEach(e => e.isIntersecting ? vis.add(e.target) : vis.delete(e.target)); upd(); });
-  ctas.forEach(c => io.observe(c));
-  const onScroll = () => { const p = scrollY > 480; if (p !== past) { past = p; upd(); } };
+  const onScroll = () => { if (scrollY > 160) fab.removeAttribute('data-off'); else fab.setAttribute('data-off',''); };
   addEventListener('scroll', onScroll, {passive:true});
   onScroll();
 })();
